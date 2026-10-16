@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1725">
+  <meta name="manus-game-loading-screen" content="1">
+  <title>$GODOT_PROJECT_NAME</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='3' y='3' width='58' height='58' rx='15' fill='%230b1725'/%3E%3Cpath d='M8 41h8l5-11 10-8h12l10 9 6 3 2 8h-7a5 5 0 0 0-10 0H29a5 5 0 0 0-10 0h-7z' fill='%23163449' stroke='%2362d8eb' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M31 23l-6 8h12l5 4' fill='none' stroke='%23efbd5b' stroke-width='2'/%3E%3Ccircle cx='24' cy='42' r='3' fill='%23efbd5b'/%3E%3Ccircle cx='47' cy='42' r='3' fill='%23efbd5b'/%3E%3C/svg%3E">
+  $GODOT_HEAD_INCLUDE
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #081320; color: #f4f8fb; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    #canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; outline: none; background: #081320; }
+    #loading { position: fixed; z-index: 2; inset: 0; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); text-align: center; background: radial-gradient(ellipse at 50% 42%, #17354b 0%, #0d2132 42%, #081320 78%); }
+    #loading[hidden] { display: none; }
+    .loader-card { width: min(440px, 100%); display: grid; justify-items: center; gap: 10px; padding: 30px 28px; border: 1px solid #70cfe533; border-radius: 24px; background: linear-gradient(145deg, #142b3bd9, #091622eF); box-shadow: 0 28px 90px #0008; }
+    .mark { width: 86px; height: 86px; filter: drop-shadow(0 10px 26px #28b8d644); }
+    h1 { margin: 6px 0 0; direction: ltr; font-size: clamp(22px, 5vw, 30px); letter-spacing: .08em; }
+    #loading-status, #loading-notice { margin: 0; color: #bfd3df; line-height: 1.6; }
+    #loading progress { display: block; width: min(320px, 75vw); height: 8px; margin: 8px auto; border: 0; border-radius: 20px; overflow: hidden; accent-color: #66d9ec; background: #ffffff26; }
+    #loading progress::-webkit-progress-bar { background: #ffffff26; border-radius: 20px; }
+    #loading progress::-webkit-progress-value { background: linear-gradient(90deg, #66d9ec, #edbd5d); border-radius: 20px; }
+    #loading progress::-moz-progress-bar { background: linear-gradient(90deg, #66d9ec, #edbd5d); border-radius: 20px; }
+    #loading button { min-height: 46px; padding: 0 22px; border: 1px solid #65d2e7; border-radius: 12px; background: #0b1a28; color: #f4f8fb; font: inherit; cursor: pointer; }
+    #loading button:hover { background: #17364a; }
+    #loading button:focus-visible { outline: 3px solid #edbd5d; outline-offset: 3px; }
+    #loading [hidden] { display: none; }
+    noscript { color: #edbd5d; }
+    @media (max-width: 480px) { .loader-card { padding: 24px 18px; } .mark { width: 72px; height: 72px; } }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0">متصفحك لا يدعم Canvas.</canvas>
+  <section id="loading" role="status" aria-live="polite">
+    <div class="loader-card">
+      <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="Velocity Rush">
+        <rect x="3" y="3" width="58" height="58" rx="15" fill="#0b1725" stroke="#42c8e5" stroke-opacity=".45"/>
+        <path d="M8 41h8l5-11 10-8h12l10 9 6 3 2 8h-7a5 5 0 0 0-10 0H29a5 5 0 0 0-10 0h-7z" fill="#163449" stroke="#62d8eb" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M31 23l-6 8h12l5 4" fill="none" stroke="#efbd5b" stroke-width="2"/>
+        <circle cx="24" cy="42" r="3" fill="#efbd5b"/><circle cx="47" cy="42" r="3" fill="#efbd5b"/>
+      </svg>
+      <h1 id="game-title"></h1>
+      <p id="loading-status">جارٍ تحميل اللعبة…</p>
+      <progress id="loading-progress" aria-label="تقدم التحميل"></progress>
+      <p id="loading-notice" hidden></p>
+      <button id="loading-retry" type="button" hidden>إعادة المحاولة</button>
+      <noscript>يلزم تفعيل JavaScript لتشغيل اللعبة.</noscript>
+    </div>
+  </section>
+  <script>
+    (() => {
+      const config = $GODOT_CONFIG;
+      const threads = $GODOT_THREADS_ENABLED;
+      const canvas = document.getElementById('canvas');
+      const loading = document.getElementById('loading');
+      const status = document.getElementById('loading-status');
+      const progress = document.getElementById('loading-progress');
+      const notice = document.getElementById('loading-notice');
+      const retry = document.getElementById('loading-retry');
+      document.getElementById('game-title').textContent = document.title;
+      document.documentElement.lang = 'ar';
+      document.documentElement.dir = 'rtl';
+      status.textContent = 'جارٍ تحميل اللعبة…';
+      retry.textContent = 'إعادة المحاولة';
+      progress.setAttribute('aria-label', 'تقدم التحميل');
+      retry.addEventListener('click', () => window.location.reload());
+      let failed = false;
+      let ready = false;
+      const startedAt = performance.now();
+      let lastProgressAt = startedAt;
+      let downloadedBytes = 0;
+      let downloadComplete = false;
+      const updateNotice = () => {
+        if (failed || ready || performance.now() - startedAt < 30000) return;
+        notice.hidden = false;
+        retry.hidden = false;
+        const message = performance.now() - lastProgressAt >= 30000
+          ? 'لم يظهر تقدم جديد في التحميل. يمكنك الانتظار أو إعادة المحاولة.'
+          : 'ما زال التحميل جاريًا. يمكنك الانتظار أو إعادة المحاولة.';
+        if (notice.textContent !== message) notice.textContent = message;
+      };
+      const onWindowError = (event) => fail(event.error || new Error('Engine startup error'));
+      const onUnhandledRejection = (event) => fail(event.reason || new Error('Engine startup rejected'));
+      const startupWatch = setInterval(updateNotice, 1000);
+      const stopObserving = () => {
+        clearInterval(startupWatch);
+        window.removeEventListener('error', onWindowError);
+        window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      };
+      const fail = (error) => {
+        if (failed || ready) return;
+        failed = true;
+        stopObserving();
+        console.error('[game-loading] Startup failed', error);
+        loading.hidden = false;
+        status.textContent = 'تعذر تحميل اللعبة. أعد المحاولة.';
+        progress.hidden = true;
+        notice.hidden = true;
+        retry.hidden = false;
+      };
+      window.addEventListener('error', onWindowError);
+      window.addEventListener('unhandledrejection', onUnhandledRejection);
+      const onProgress = (current, total) => {
+        if (failed || ready) return;
+        if (Number.isFinite(current) && current > downloadedBytes) {
+          downloadedBytes = current;
+          lastProgressAt = performance.now();
+        }
+        if (!downloadComplete && Number.isFinite(total) && total > 0 && Number.isFinite(current) && current >= total) {
+          downloadComplete = true;
+          lastProgressAt = performance.now();
+        }
+        updateNotice();
+        if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(current) || current < 0) {
+          progress.removeAttribute('value');
+          status.textContent = 'جارٍ تحميل اللعبة…';
+          return;
+        }
+        progress.max = total;
+        progress.value = Math.min(current, total);
+        status.textContent = current >= total ? 'جارٍ تشغيل اللعبة…' : `${Math.floor(current / total * 100)}٪`;
+      };
+      const start = async () => {
+        if (failed) return;
+        try {
+          lastProgressAt = performance.now();
+          const missing = Engine.getMissingFeatures({ threads });
+          if (missing.length) throw new Error(`Missing browser features: ${missing.join(', ')}`);
+          const engine = new Engine({ ...config, canvas });
+          await engine.startGame({ onProgress });
+          if (failed) return;
+          ready = true;
+          stopObserving();
+          notice.hidden = true;
+          retry.hidden = true;
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (failed) return;
+            loading.hidden = true;
+            if (config['focusCanvas']) canvas.focus();
+          }));
+        } catch (error) {
+          fail(error);
+        }
+      };
+      const script = document.createElement('script');
+      script.src = '$GODOT_URL';
+      script.addEventListener('load', start, { once: true });
+      script.addEventListener('error', () => fail(new Error('Engine script could not be loaded')), { once: true });
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
