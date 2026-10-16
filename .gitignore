@@ -1,0 +1,7 @@
+.godot/
+dist/
+artifacts/
+node_modules/
+.manus-logs/
+.DS_Store
+Thumbs.db
