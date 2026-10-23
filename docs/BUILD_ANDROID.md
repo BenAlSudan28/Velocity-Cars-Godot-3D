@@ -2,13 +2,13 @@
 
 ## ما يحدث في البناء
 
-ملف `.github/workflows/build.yml` يستخدم Ubuntu 24.04 المستضاف من GitHub. يهيئ Java 17 وAndroid SDK وNDK، ثم ينزّل Godot 4.7.2 وقوالب التصدير المطابقة لإصداره. بعد استيراد الموارد وتشغيل اختبار الحلقة الأساسية، ينفّذ:
+ملف `.github/workflows/build.yml` يستخدم Ubuntu 24.04 المستضاف من GitHub. يهيئ Java 17 وAndroid SDK وNDK، ويشغّل ADB، ثم ينزّل Godot 4.7.2 وقوالب التصدير المطابقة لإصداره. يستخدم إعداد التصدير قيم Godot الافتراضية لـMin/Target SDK لأن Gradle Build معطّل، ويُفعّل المشروع استيراد خامات ETC2/ASTC المطلوب لـAndroid. بعد استيراد الموارد وتشغيل اختبار الحلقة الأساسية، ينفّذ:
 
 ```bash
 godot --headless --path . --export-debug "Android" artifacts/VelocityRush3D.apk
 ```
 
-يتأكد Workflow من أن ملف APK موجود وسليم كأرشيف، ثم يرفعه إلى GitHub Actions Artifacts. لا يحتاج المستخدم إلى Windows Runner أو Unreal Engine أو Android Studio على جهازه.
+يتأكد Workflow من سلامة أرشيف APK وتوقيعه واسم الحزمة ووجود مكتبات ARMv7 وARM64، ثم يرفعه إلى GitHub Actions Artifacts. ينزّل GitHub الـArtifact بصيغة ZIP؛ يجب فك ضغطه وتثبيت `VelocityRush3D.apk` بداخله، لا ZIP نفسه. لا يحتاج المستخدم إلى Windows Runner أو Unreal Engine أو Android Studio على جهازه.
 
 ## الاستخدام من الهاتف
 
