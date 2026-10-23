@@ -8,7 +8,7 @@ func _capture() -> void:
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	var packed := load("res://scenes/race/race_main.tscn") as PackedScene
 	if packed == null:
-		push_error("Could not load the race scene for visual capture.")
+		push_error("Could not load the game scene for visual capture.")
 		quit(1)
 		return
 	var game := packed.instantiate()
@@ -29,9 +29,18 @@ func _capture() -> void:
 		push_error("Could not capture the race.")
 		quit(1)
 		return
-	for rival in game.rivals:
-		print("RIVAL progress=%0.1fm lane=%0.1fm position=%s speed=%0.1fkm/h meshes=%d" % [rival.progress_m, rival.lane_offset, str(rival.global_position), rival.speed_kmh(), rival.visual.get_child_count()])
-	print("VISUAL CAPTURE PASS: /tmp/velocity-rush-menu.png and /tmp/velocity-rush-race.png; speed=%0.1f/%0.1f km/h" % [game.player.speed_kmh(), game.player.top_speed_mps * 3.6])
+	game.set_touch_input("accelerate", false)
+	game.start_free_drive()
+	game.set_touch_input("accelerate", true)
+	for frame in range(45):
+		await physics_frame
+	await create_timer(0.5).timeout
+	var city_error := get_root().get_texture().get_image().save_png("/tmp/velocity-rush-city.png")
+	if city_error != OK:
+		push_error("Could not capture the free-drive city.")
+		quit(1)
+		return
+	print("VISUAL CAPTURE PASS: menu, race and free-drive city captured at 1280x720.")
 	get_root().remove_child(game)
 	game.free()
 	await process_frame
