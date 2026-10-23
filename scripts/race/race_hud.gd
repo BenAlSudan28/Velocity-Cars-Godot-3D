@@ -9,6 +9,7 @@ var speed_label: Label
 var telemetry_label: Label
 var lap_label: Label
 var score_label: Label
+var free_distance_label: Label
 var nitro_bar: ProgressBar
 var lap_bar: ProgressBar
 var touch_controls: TouchControls
@@ -26,21 +27,21 @@ func show_menu(car_index: int, audio_enabled: bool) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "MenuCard"
 	_set_rect(panel, Rect2(0.035, 0.045, 0.36, 0.91))
-	panel.add_theme_stylebox_override("panel", RaceTheme.panel_style(Color(0.025, 0.055, 0.085, 0.91)))
+	panel.add_theme_stylebox_override("panel", RaceTheme.panel_style(Color(0.025, 0.055, 0.085, 0.93)))
 	root.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 9)
+	column.add_theme_constant_override("separation", 7)
 	panel.add_child(column)
-	column.add_child(_make_label("VELOCITY RUSH", 32, Color("#ecf6fb"), HORIZONTAL_ALIGNMENT_CENTER, true))
-	column.add_child(_make_label("سباق المدينة • حلبة النيون", 18, Color("#66d8ed"), HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(_make_label("VELOCITY RUSH", 31, Color("#ecf6fb"), HORIZONTAL_ALIGNMENT_CENTER, true))
+	column.add_child(_make_label("مدينة مفتوحة • حلبة سباق ثلاثية الأبعاد", 16, Color("#66d8ed"), HORIZONTAL_ALIGNMENT_CENTER))
 	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 20.0
+	spacer.custom_minimum_size.y = 9.0
 	column.add_child(spacer)
 	var car := CarCatalog.get_car(car_index)
-	column.add_child(_make_label("سيارتك المختارة", 15, Color("#93aebb"), HORIZONTAL_ALIGNMENT_CENTER))
-	column.add_child(_make_label(String(car["name"]), 26, Color(String(car["paint"])), HORIZONTAL_ALIGNMENT_CENTER, true))
-	column.add_child(_make_label(String(car["subtitle"]), 16, Color("#d4e3e9"), HORIZONTAL_ALIGNMENT_CENTER))
-	column.add_child(_make_label("تصميم خيالي أصلي • بلا شعارات تجارية", 12, Color("#87a0ae"), HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(_make_label("سيارتك المختارة", 14, Color("#93aebb"), HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(_make_label(String(car["name"]), 25, Color(String(car["paint"])), HORIZONTAL_ALIGNMENT_CENTER, true))
+	column.add_child(_make_label(String(car["subtitle"]), 15, Color("#d4e3e9"), HORIZONTAL_ALIGNMENT_CENTER))
+	column.add_child(_make_label("تصميم خيالي أصلي • بلا شعارات تجارية", 11, Color("#87a0ae"), HORIZONTAL_ALIGNMENT_CENTER))
 	var chooser := HBoxContainer.new()
 	chooser.add_theme_constant_override("separation", 12)
 	var previous := _make_button("السابق", "car_previous", false)
@@ -50,16 +51,21 @@ func show_menu(car_index: int, audio_enabled: bool) -> void:
 	chooser.add_child(previous)
 	chooser.add_child(next)
 	column.add_child(chooser)
-	var gap := Control.new()
-	gap.custom_minimum_size.y = 4.0
-	column.add_child(gap)
-	var start := _make_button("ابدأ السباق", "start", true)
-	start.custom_minimum_size.y = 56.0
-	column.add_child(start)
+	column.add_child(_make_label("اختر نمط اللعب", 17, Color("#ecf6fb"), HORIZONTAL_ALIGNMENT_CENTER, true))
+	var modes := HBoxContainer.new()
+	modes.add_theme_constant_override("separation", 10)
+	var race_button := _make_button("سباق الحلبة\n3 لفات", "start_race", true)
+	race_button.custom_minimum_size.y = 61.0
+	var city_button := _make_button("قيادة حرة\nمدينة 3D", "start_free_drive", false)
+	city_button.custom_minimum_size.y = 61.0
+	modes.add_child(race_button)
+	modes.add_child(city_button)
+	column.add_child(modes)
+	column.add_child(_make_label("القيادة الحرة: شوارع متقاطعة، مرور باتجاهين، فنادق ومطاعم.", 12, Color("#b7ccd5"), HORIZONTAL_ALIGNMENT_CENTER))
 	var audio_text := "الصوت: تشغيل" if audio_enabled else "الصوت: مكتوم"
 	column.add_child(_make_button(audio_text, "audio_toggle", false))
-	column.add_child(_make_label("WASD / الأسهم للتوجيه والتسارع\nShift للنيترو • Esc للإيقاف", 13, Color("#a8bdc7"), HORIZONTAL_ALIGNMENT_CENTER))
-	_add_label("3 لفات • منافسون آليون • العب دون إنترنت", Rect2(0.42, 0.90, 0.54, 0.055), 15, Color("#d3e4eb"), HORIZONTAL_ALIGNMENT_CENTER)
+	column.add_child(_make_label("WASD / الأسهم للقيادة • Shift للنيترو في السباق\nEsc للإيقاف المؤقت • تعمل اللعبة دون إنترنت", 12, Color("#a8bdc7"), HORIZONTAL_ALIGNMENT_CENTER))
+	_add_label("اختر السيارة ثم ابدأ سباق الحلبة أو تجوّل بحرية في المدينة", Rect2(0.42, 0.90, 0.54, 0.055), 14, Color("#d3e4eb"), HORIZONTAL_ALIGNMENT_CENTER)
 
 func show_race() -> void:
 	_clear()
@@ -89,13 +95,37 @@ func show_race() -> void:
 	nitro_bar = _make_progress_bar(Color("#48d8ef"))
 	right_column.add_child(nitro_bar)
 	_add_label("تجاوز المنافسين واجمع طاقة النيترو", Rect2(0.34, 0.91, 0.33, 0.045), 13, Color("#d3e4eb"), HORIZONTAL_ALIGNMENT_CENTER)
+	_create_touch_controls(true)
+
+func show_free_drive() -> void:
+	_clear()
+	var top_left := _panel(Rect2(0.022, 0.028, 0.255, 0.15))
+	var left_column := VBoxContainer.new()
+	left_column.add_theme_constant_override("separation", 0)
+	top_left.add_child(left_column)
+	speed_label = _make_label("000\nكم/س", 25, Color("#f1f8fb"), HORIZONTAL_ALIGNMENT_LEFT, true)
+	left_column.add_child(speed_label)
+	telemetry_label = _make_label("المسافة 0 م", 14, Color("#97b9c8"), HORIZONTAL_ALIGNMENT_LEFT)
+	left_column.add_child(telemetry_label)
+	var city_panel := _panel(Rect2(0.68, 0.028, 0.30, 0.15))
+	var city_column := VBoxContainer.new()
+	city_column.add_theme_constant_override("separation", 3)
+	city_panel.add_child(city_column)
+	city_column.add_child(_make_label("قيادة حرة • المدينة", 18, Color("#f1f8fb"), HORIZONTAL_ALIGNMENT_CENTER, true))
+	free_distance_label = _make_label("تقاطع طرق • مرور حي", 14, Color("#73d8ea"), HORIZONTAL_ALIGNMENT_CENTER)
+	city_column.add_child(free_distance_label)
+	_add_label("اختر أي شارع عند التقاطعات وتفادَ حركة المرور", Rect2(0.30, 0.91, 0.40, 0.045), 13, Color("#d3e4eb"), HORIZONTAL_ALIGNMENT_CENTER)
+	_create_touch_controls(false)
+
+func _create_touch_controls(show_nitro: bool) -> void:
 	touch_controls = TouchControls.new()
 	touch_controls.name = "TouchControls"
 	touch_controls.hold_changed.connect(func(action: String, pressed: bool): touch_changed.emit(action, pressed))
 	touch_controls.pause_pressed.connect(func(): action_requested.emit("pause"))
 	root.add_child(touch_controls)
+	touch_controls.set_nitro_visible(show_nitro)
 
-func show_pause() -> void:
+func show_pause(free_drive: bool = false) -> void:
 	_clear()
 	_add_overlay()
 	var panel := _panel(Rect2(0.31, 0.23, 0.38, 0.54))
@@ -103,9 +133,10 @@ func show_pause() -> void:
 	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
 	column.add_child(_make_label("توقف مؤقت", 30, Color("#f0f7fa"), HORIZONTAL_ALIGNMENT_CENTER, true))
-	column.add_child(_make_label("تم حفظ تقدّمك الحالي في هذا السباق.", 15, Color("#a9c1cc"), HORIZONTAL_ALIGNMENT_CENTER))
+	var context := "يمكنك استئناف التجوّل أو إعادة القيادة الحرة." if free_drive else "يمكنك استئناف السباق أو البدء من جديد."
+	column.add_child(_make_label(context, 15, Color("#a9c1cc"), HORIZONTAL_ALIGNMENT_CENTER))
 	column.add_child(_make_button("استئناف القيادة", "resume", true))
-	column.add_child(_make_button("إعادة السباق", "retry", false))
+	column.add_child(_make_button("إعادة الوضع الحالي", "retry", false))
 	column.add_child(_make_button("القائمة الرئيسية", "menu", false))
 
 func show_results(won: bool, score: int, distance_m: float, collisions: int, position: int) -> void:
@@ -137,6 +168,14 @@ func update_race(speed_kmh: float, distance_m: float, score: int, lap: int, posi
 	if is_instance_valid(lap_bar):
 		lap_bar.value = clampf(lap_progress * 100.0, 0.0, 100.0)
 
+func update_free_drive(speed_kmh: float, distance_m: float, elapsed_seconds: float) -> void:
+	if is_instance_valid(speed_label):
+		speed_label.text = "%03d\nكم/س" % maxi(0, roundi(speed_kmh))
+	if is_instance_valid(telemetry_label):
+		telemetry_label.text = "المسافة %s  •  %02d:%02d" % [RaceConfig.format_distance(distance_m), int(elapsed_seconds / 60.0), int(fmod(elapsed_seconds, 60.0))]
+	if is_instance_valid(free_distance_label):
+		free_distance_label.text = "تجوّلت %s • مرور باتجاهين" % RaceConfig.format_distance(distance_m)
+
 func show_countdown(text: String) -> void:
 	_add_label(text, Rect2(0.42, 0.36, 0.16, 0.16), 54, Color("#ffffff"), HORIZONTAL_ALIGNMENT_CENTER, true)
 
@@ -148,6 +187,7 @@ func _clear() -> void:
 	telemetry_label = null
 	lap_label = null
 	score_label = null
+	free_distance_label = null
 	nitro_bar = null
 	lap_bar = null
 	for child in root.get_children():

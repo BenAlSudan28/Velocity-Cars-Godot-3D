@@ -5,6 +5,7 @@ signal hold_changed(action: String, pressed: bool)
 signal pause_pressed
 
 var _held: Dictionary = {}
+var nitro_button: Button
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -13,11 +14,11 @@ func _ready() -> void:
 	_create_hold_button("▶", "right", Rect2(0.145, 0.755, 0.10, 0.19), Color("#18384b"))
 	_create_hold_button("فرامل", "brake", Rect2(0.715, 0.775, 0.105, 0.17), Color("#56313b"))
 	_create_hold_button("تسارع", "accelerate", Rect2(0.835, 0.705, 0.13, 0.24), Color("#087d9b"))
-	_create_hold_button("نيترو", "nitro", Rect2(0.815, 0.535, 0.15, 0.105), Color("#07566b"))
+	nitro_button = _create_hold_button("نيترو", "nitro", Rect2(0.815, 0.535, 0.15, 0.105), Color("#07566b"))
 	var pause_button := _make_button("Ⅱ", Rect2(0.46, 0.80, 0.08, 0.10), Color("#1c2a3a"))
 	pause_button.pressed.connect(func(): pause_pressed.emit())
 
-func _create_hold_button(label: String, action: String, rect: Rect2, color: Color) -> void:
+func _create_hold_button(label: String, action: String, rect: Rect2, color: Color) -> Button:
 	var button := _make_button(label, rect, color)
 	button.button_down.connect(func(): _set_held(action, true))
 	button.button_up.connect(func(): _set_held(action, false))
@@ -25,6 +26,7 @@ func _create_hold_button(label: String, action: String, rect: Rect2, color: Colo
 		if bool(_held.get(action, false)):
 			_set_held(action, false)
 	)
+	return button
 
 func _make_button(label: String, rect: Rect2, color: Color) -> Button:
 	var button := Button.new()
@@ -47,6 +49,10 @@ func _make_button(label: String, rect: Rect2, color: Color) -> Button:
 	button.focus_mode = Control.FOCUS_NONE
 	add_child(button)
 	return button
+
+func set_nitro_visible(visible_now: bool) -> void:
+	if is_instance_valid(nitro_button):
+		nitro_button.visible = visible_now
 
 func _set_held(action: String, pressed: bool) -> void:
 	_held[action] = pressed

@@ -1,15 +1,21 @@
 extends Node3D
 class_name RaceMain
 
+enum GameMode { RACE, FREE_DRIVE }
+
 const TRACK_SCENE: PackedScene = preload("res://scenes/race/race_track.tscn")
 const PLAYER_SCENE: PackedScene = preload("res://scenes/race/player_car.tscn")
 const RIVAL_SCENE: PackedScene = preload("res://scenes/race/rival_car.tscn")
 const PICKUP_SCENE: PackedScene = preload("res://scenes/race/energy_pickup.tscn")
 const OBSTACLE_SCENE: PackedScene = preload("res://scenes/race/race_obstacle.tscn")
 const GATE_SCENE: PackedScene = preload("res://scenes/race/start_gate.tscn")
+const CITY_SCENE: PackedScene = preload("res://scenes/city/free_drive_city.tscn")
 
 var track: RaceTrack
+var gate: StartGate
 var player: PlayerDriver
+var city_world: FreeDriveCity
+var free_driver: FreeDriveController
 var rivals: Array[RivalDriver] = []
 var pickups: Array[EnergyPickup] = []
 var obstacles: Array[RaceObstacle] = []
@@ -20,6 +26,7 @@ var audio: AudioManager
 var score_system := ScoreSystem.new()
 var difficulty := DifficultyManager.new()
 var mode: RaceState.Mode = RaceState.Mode.MENU
+var game_mode: int = GameMode.RACE
 var selected_car: int = 0
 var race_time: float = 0.0
 var touch_state: Dictionary = {}
@@ -35,9 +42,10 @@ func _ready() -> void:
 	audio.bind_settings(settings)
 	track = TRACK_SCENE.instantiate() as RaceTrack
 	add_child(track)
-	var gate := GATE_SCENE.instantiate() as StartGate
+	gate = GATE_SCENE.instantiate() as StartGate
 	gate.setup(track)
 	add_child(gate)
+	gate.visible = false
 	player = PLAYER_SCENE.instantiate() as PlayerDriver
 	add_child(player)
 	player.configure(track, selected_car, 0.0, 0.0)
@@ -60,23 +68,21 @@ func _physics_process(delta: float) -> void:
 		pause_race()
 		return
 	race_time += delta
+	var controls := _read_controls()
+	if game_mode == GameMode.FREE_DRIVE:
+		if free_driver == null or city_world == null:
+			return
+		free_driver.drive_from_input(delta, controls, city_world)
+		if city_world.resolve_traffic_collision(free_driver):
+			audio.play_cue("impact")
+		audio.update_engine(free_driver.speed_mps, false)
+		hud.update_free_drive(free_driver.speed_kmh(), free_driver.total_distance_m, race_time)
+		return
 	difficulty.update(race_time)
-	var steering := float(Input.is_action_pressed("race_right")) - float(Input.is_action_pressed("race_left"))
-	if bool(touch_state.get("right", false)):
-		steering += 1.0
-	if bool(touch_state.get("left", false)):
-		steering -= 1.0
-	steering = clampf(steering, -1.0, 1.0)
-	var controls := {
-		"throttle": maxf(float(Input.is_action_pressed("race_accelerate")), float(touch_state.get("accelerate", false))),
-		"brake": maxf(float(Input.is_action_pressed("race_brake")), float(touch_state.get("brake", false))),
-		"steering": steering,
-		"boost": Input.is_action_pressed("race_nitro") or bool(touch_state.get("nitro", false))
-	}
 	player.drive_from_input(delta, controls)
-	for i in range(rivals.size()):
-		var rival := rivals[i]
-		rival.tick_ai(delta, race_time, difficulty.difficulty)
+	for rival in rivals:
+		if is_instance_valid(rival):
+			rival.tick_ai(delta, race_time, difficulty.difficulty)
 	if CollisionManager.resolve_racer_contacts(player, rivals, track.track_length):
 		score_system.add_collision()
 		audio.play_cue("impact")
@@ -96,7 +102,24 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("race_confirm") and mode == RaceState.Mode.MENU:
 		start_race()
 
+func _read_controls() -> Dictionary:
+	var steering := float(Input.is_action_pressed("race_right")) - float(Input.is_action_pressed("race_left"))
+	if bool(touch_state.get("right", false)):
+		steering += 1.0
+	if bool(touch_state.get("left", false)):
+		steering -= 1.0
+	return {
+		"throttle": maxf(float(Input.is_action_pressed("race_accelerate")), float(touch_state.get("accelerate", false))),
+		"brake": maxf(float(Input.is_action_pressed("race_brake")), float(touch_state.get("brake", false))),
+		"steering": clampf(steering, -1.0, 1.0),
+		"boost": Input.is_action_pressed("race_nitro") or bool(touch_state.get("nitro", false))
+	}
+
 func start_race() -> void:
+	_exit_free_drive()
+	_set_race_world_visible(true)
+	gate.visible = true
+	game_mode = GameMode.RACE
 	_clear_race_objects()
 	score_system.reset()
 	difficulty.reset()
@@ -110,23 +133,70 @@ func start_race() -> void:
 	hud.show_race()
 	audio.start_race()
 
+func start_free_drive() -> void:
+	_clear_race_objects()
+	_exit_free_drive()
+	score_system.reset()
+	difficulty.reset()
+	race_time = 0.0
+	touch_state.clear()
+	game_mode = GameMode.FREE_DRIVE
+	_set_race_world_visible(false)
+	city_world = CITY_SCENE.instantiate() as FreeDriveCity
+	city_world.name = "FreeDriveCity"
+	add_child(city_world)
+	free_driver = FreeDriveController.new()
+	free_driver.name = "FreeDrivePlayer"
+	add_child(free_driver)
+	free_driver.configure(selected_car, Vector3(0.0, 0.12, 12.0), 0.0)
+	camera_rig.bind_target(free_driver)
+	city_world.set_simulation_enabled(true)
+	mode = RaceState.Mode.RACING
+	hud.show_free_drive()
+	audio.start_race()
+
+func _exit_free_drive() -> void:
+	if is_instance_valid(city_world):
+		remove_child(city_world)
+		city_world.free()
+	city_world = null
+	if is_instance_valid(free_driver):
+		remove_child(free_driver)
+		free_driver.free()
+	free_driver = null
+
+func _set_race_world_visible(is_visible: bool) -> void:
+	if is_instance_valid(track):
+		track.visible = is_visible
+	if is_instance_valid(player):
+		player.visible = is_visible
+	if is_instance_valid(gate):
+		gate.visible = is_visible and mode == RaceState.Mode.RACING
+
 func pause_race() -> void:
 	if mode != RaceState.Mode.RACING:
 		return
 	mode = RaceState.Mode.PAUSED
 	touch_state.clear()
+	if game_mode == GameMode.FREE_DRIVE and is_instance_valid(city_world):
+		city_world.set_simulation_enabled(false)
 	audio.pause_audio(true)
-	hud.show_pause()
+	hud.show_pause(game_mode == GameMode.FREE_DRIVE)
 
 func resume_race() -> void:
 	if mode != RaceState.Mode.PAUSED:
 		return
 	mode = RaceState.Mode.RACING
+	if game_mode == GameMode.FREE_DRIVE and is_instance_valid(city_world):
+		city_world.set_simulation_enabled(true)
 	audio.pause_audio(false)
-	hud.show_race()
+	if game_mode == GameMode.FREE_DRIVE:
+		hud.show_free_drive()
+	else:
+		hud.show_race()
 
 func finish_race() -> void:
-	if mode != RaceState.Mode.RACING:
+	if mode != RaceState.Mode.RACING or game_mode != GameMode.RACE:
 		return
 	mode = RaceState.Mode.RESULTS
 	touch_state.clear()
@@ -136,6 +206,10 @@ func finish_race() -> void:
 
 func return_to_menu() -> void:
 	_clear_race_objects()
+	_exit_free_drive()
+	_set_race_world_visible(true)
+	gate.visible = false
+	game_mode = GameMode.RACE
 	mode = RaceState.Mode.MENU
 	race_time = 0.0
 	touch_state.clear()
@@ -160,8 +234,15 @@ func set_touch_input(action: String, pressed: bool) -> void:
 
 func _on_hud_action(action: String) -> void:
 	match action:
-		"start", "retry":
+		"start", "start_race":
 			start_race()
+		"start_free_drive":
+			start_free_drive()
+		"retry":
+			if game_mode == GameMode.FREE_DRIVE:
+				start_free_drive()
+			else:
+				start_race()
 		"pause":
 			pause_race()
 		"resume":
