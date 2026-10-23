@@ -129,10 +129,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          "$GODOT_BIN" --headless --path . --export-debug "Android" "artifacts/VelocityRush3D.apk"
-          test -s artifacts/VelocityRush3D.apk
-          unzip -t artifacts/VelocityRush3D.apk >/dev/null
-          echo "APK ready: $(du -h artifacts/VelocityRush3D.apk | cut -f1)"
+          APK="artifacts/VelocityRush3D.apk"
+          "$GODOT_BIN" --headless --path . --export-debug "Android" "$APK"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_SDK_ROOT/build-tools/35.0.1/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_SDK_ROOT/build-tools/35.0.1/aapt" dump badging "$APK" | tee artifacts/apk-badging.txt
+          grep -q "package: name='com.velocityrush3d.game'" artifacts/apk-badging.txt
+          grep -q "native-code:.*armeabi-v7a" artifacts/apk-badging.txt
+          grep -q "native-code:.*arm64-v8a" artifacts/apk-badging.txt
+          echo "APK ready: $(du -h "$APK" | cut -f1)"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
